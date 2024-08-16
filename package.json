@@ -1,0 +1,19 @@
+{
+  "name": "blog_site",
+  "version": "1.0.0",
+  "description": "This fot building a blogsite Build a blog management system where",
+  "main": "and MySQL for the backend. Design the",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Asad Ullah Shah",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "body-parser": "^1.20.2",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "mysql2": "^3.11.0"
+  }
+}

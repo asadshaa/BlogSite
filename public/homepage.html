@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blog Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            width: 80%;
+            margin: auto;
+            overflow: hidden;
+        }
+        header {
+            background: #333;
+            color: #fff;
+            padding-top: 30px;
+            min-height: 70px;
+            border-bottom: #ccc 3px solid;
+            margin-bottom: 20px;
+        }
+        header h1 {
+            text-align: center;
+            margin: 0;
+        }
+        .post-list {
+            margin-top: 20px;
+        }
+        .post {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        .post h2 {
+            margin-top: 0;
+        }
+        .post .content {
+            margin-top: 10px;
+        }
+        .post .actions {
+            margin-top: 10px;
+        }
+        .post .actions button {
+            margin-right: 10px;
+        }
+        .form-container {
+            background: #fff;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .form-container h2 {
+            margin-top: 0;
+        }
+        .form-container input, .form-container textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .form-container button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background: #007bff;
+            color: #fff;
+            cursor: pointer;
+        }
+        .form-container button:hover {
+            background: #0056b3;
+        }
+        #editPostForm {
+            display: none;
+        }
+        .comments-section {
+            margin-top: 20px;
+        }
+        .comment {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .comment p {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>My Blog</h1>
+        </div>
+    </header>
+    <div class="container">
+        <!-- Form to create a new post -->
+        <div class="form-container">
+            <h2>Create a New Post</h2>
+            <form id="createPostForm">
+                <input type="text" id="title" name="title" placeholder="Post Title" required>
+                <textarea id="content" name="content" placeholder="Post Content" rows="5" required></textarea>
+                <button type="submit">Create Post</button>
+            </form>
+        </div>
+
+        <!-- Form to edit an existing post -->
+        <div class="form-container" id="editPostForm">
+            <h2>Edit Post</h2>
+            <input type="hidden" id="editPostId">
+            <input type="text" id="editTitle" placeholder="Post Title" required>
+            <textarea id="editContent" placeholder="Post Content" rows="5" required></textarea>
+            <button type="submit">Save Changes</button>
+        </div>
+
+        <!-- List of blog posts -->
+        <div class="post-list" id="postList">
+            <!-- Blog posts will be dynamically inserted here -->
+        </div>
+    </div>
+
+    <script>
+        // Function to handle the creation of a new post
+        document.getElementById('createPostForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            const title = document.getElementById('title').value;
+            const content = document.getElementById('content').value;
+            
+            try {
+                const response = await fetch('/api/posts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ title, content })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Post created successfully!');
+                    loadPosts(); // Reload the posts to include the new one
+                } else {
+                    alert('Error creating post: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        });
+
+        // Function to load and display blog posts
+        async function loadPosts() {
+            try {
+                const response = await fetch('/api/posts');
+                const result = await response.json();
+                
+                const postList = document.getElementById('postList');
+                postList.innerHTML = ''; // Clear existing posts
+                
+                result.data.forEach(post => {
+                    const postElement = document.createElement('div');
+                    postElement.classList.add('post');
+                    postElement.innerHTML = `
+                        <h2>${post.title}</h2>
+                        <div class="content">${post.content}</div>
+                        <div class="actions">
+                            <button onclick="editPost(${post.id})">Edit</button>
+                            <button onclick="deletePost(${post.id})">Delete</button>
+                        </div>
+                        <!-- Comments Section -->
+                        <div class="comments-section">
+                            <h3>Comments</h3>
+                            <div id="commentsList${post.id}">
+                                <!-- Comments will be dynamically inserted here -->
+                            </div>
+                            <div class="form-container">
+                                <h2>Add a Comment</h2>
+                                <form id="commentForm${post.id}">
+                                    <textarea id="commentContent${post.id}" placeholder="Your comment" rows="3" required></textarea>
+                                    <button type="submit">Post Comment</button>
+                                </form>
+                            </div>
+                        </div>
+                    `;
+                    postList.appendChild(postElement);
+
+                    // Load comments for the post
+                    loadComments(post.id);
+                    
+                    // Attach event listener to the comment form
+                    document.getElementById(`commentForm${post.id}`).addEventListener('submit', async function(event) {
+                        event.preventDefault();
+                        
+                        const commentContent = document.getElementById(`commentContent${post.id}`).value;
+                        
+                        try {
+                            const response = await fetch(`/api/posts/${post.id}/comments`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ comment_text: commentContent })
+                            });
+                            
+                            const result = await response.json();
+                            
+                            if (result.success) {
+                                alert('Comment added successfully!');
+                                loadComments(post.id); // Reload comments to include the new one
+                                document.getElementById(`commentContent${post.id}`).value = ''; // Clear the input field
+                            } else {
+                                alert('Error adding comment: ' + result.message);
+                            }
+                        } catch (error) {
+                            console.error('Error:', error);
+                        }
+                    });
+                });
+            } catch (error) {
+                console.error('Error loading posts:', error);
+            }
+        }
+
+        // Function to handle saving changes to an edited post
+        document.getElementById('editPostForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            const id = document.getElementById('editPostId').value;
+            const title = document.getElementById('editTitle').value;
+            const content = document.getElementById('editContent').value;
+
+            try {
+                const response = await fetch(`/api/posts/${id}`, { 
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ title, content })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('Post updated successfully!');
+                    loadPosts(); // Reload posts to reflect the update
+                    document.getElementById('editPostForm').style.display = 'none'; 
+                } else {
+                    alert('Error updating post: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        });
+
+        function editPost(id) {
+            fetch(`/api/posts/${id}`)
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        document.getElementById('editPostId').value = id;
+                        document.getElementById('editTitle').value = result.data.title;
+                        document.getElementById('editContent').value = result.data.content;
+                        document.getElementById('editPostForm').style.display = 'block';
+                    } else {
+                        alert('Error fetching post data');
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Function to handle deleting a post
+        async function deletePost(id) {
+            try {
+                const response = await fetch(`/api/posts/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Post deleted successfully!');
+                    loadPosts();
+                } else {
+                    alert('Error deleting post: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // Function to load and display comments for a specific post
+        async function loadComments(postId) {
+            try {
+                const response = await fetch(`/api/posts/${postId}/comments`);
+                const result = await response.json();
+
+                const commentsList = document.getElementById(`commentsList${postId}`);
+                commentsList.innerHTML = ''; // Clear existing comments
+                
+                result.data.forEach(comment => {
+                    const commentElement = document.createElement('div');
+                    commentElement.classList.add('comment');
+                    commentElement.innerHTML = `<p>${comment.comment_text}</p>`;
+                    commentsList.appendChild(commentElement);
+                });
+            } catch (error) {
+                console.error('Error loading comments:', error);
+            }
+        }
+
+        // Load posts when the page loads
+        window.onload = loadPosts;
+    </script>
+</body>
+</html>
